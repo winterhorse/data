@@ -1,5 +1,9 @@
 #ifndef _FINAL_SCENE_H__
 #define _FINAL_SCENE_H__
+
+#include <memory>
+#include "nanovg.h"
+
 #include "const_value.h"
 #include "GLES2/gl2.h"
 #include "opencv2/core.hpp"
@@ -9,6 +13,10 @@
 
 #include "LUT.h"
 #include "utils.hpp"
+
+#include "RadarView.hpp"
+#include "DistanceLine.hpp"
+#include "TransBot.h"
 
 enum class SceneMode
 {
@@ -69,7 +77,7 @@ public:
 		birdEyeViewY = y;
 		birdEyeViewWidth = width;
 		birdEyeViewHeight = height;
-		setBirdEyeViewParams(lut);
+		setBirdEyeViewParams(*lut);
 	}
 
 	inline void setSingleViewport(int x, int y, int width, int height)
@@ -94,6 +102,9 @@ public:
 	void render3DView(int x, int y, int width, int height, void* data, GLuint fbo = 0);
 	void renderSingleView(int camID,int x, int y, int width, int height, void* data, GLuint fbo = 0);
 	void renderTrail(int x, int y, int width, int height, bool applyTransform = false, GLuint fbo = 0);
+	void renderTexView(GLint textureID, int x, int y, int width, int height, glm::mat4 transMatrix = glm::mat4(1.0));
+	void copyFBOTexture(GLsizei srcWidth, GLsizei srcHeight, GLsizei srcDepth);
+
 
 	void setRegionHighlight(int regionId);
 	void unsetRegionHighlight(int regionId);
@@ -110,7 +121,13 @@ private:
     GLuint fbo, rbo, dstTex;
 
 	static const int lumEqualRate = 15;
-	CalibLUT lut;
+
+	std::shared_ptr<CalibLUT> lut;
+
+	RadarView radar;
+
+	DistanceLineView disLine;
+	std::shared_ptr<NVGcontext> vgCtx;
 
 	//SceneMode mode = SceneMode::Scene2DWith3D;
 	SceneMode mode = SceneMode::Scene2DWithSingle;
@@ -134,6 +151,15 @@ private:
 	int singleViewX, singleViewY, singleViewWidth, singleViewHeight;
 	int threeDViewX, threeDViewY, threeDViewWidth, threeDViewHeight;
 
+
+	// 透明车底
+	// 1. 前一帧的帧缓存
+	GLuint fboPre, dstTexPre;
+	// 2. 里程计数据
+	Encoder encoderData;
+	// 3. 透明车底类
+	TransBot *transBotC;
+    bool reset;
 };
 
 #endif

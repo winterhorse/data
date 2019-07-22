@@ -35,6 +35,12 @@
 #include <glm/ext.hpp>
 
 #include "trail.hpp"
+#include "DistanceLine.hpp"
+
+#include "nanovg.h"
+#define NANOVG_GLES2_IMPLEMENTATION
+#include "nanovg_gl.h"
+#include "nanovg_gl_utils.h"
 
 float hOffset = 0.0;
 float vOffset = 0.0;
@@ -70,24 +76,29 @@ CFinalScene::CFinalScene()
 	m_endView = 0;
 	m_curView = 4;
 
-    glGenFramebuffers(1, &fbo);
-    glGenRenderbuffers(1, &rbo);
+	glGenFramebuffers(1, &fbo);
+	glGenRenderbuffers(1, &rbo);
 
-    glGenTextures(1, &dstTex);
-    glBindTexture(GL_TEXTURE_2D, dstTex);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 810, 1080, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+	glGenTextures(1, &dstTex);
+	glBindTexture(GL_TEXTURE_2D, dstTex);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 1920, 1080, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+	// glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 1080, 720, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
-    glBindRenderbuffer(GL_RENDERBUFFER,  rbo);
-    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT16, 810, 1080);
-    glBindFramebuffer(GL_FRAMEBUFFER, fbo);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, dstTex, 0);
+	glBindRenderbuffer(GL_RENDERBUFFER,  rbo);
+	glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT16, 1920, 1080);
+	glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, dstTex, 0);
 	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, rbo);
 
-    auto status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
-    if (status != GL_FRAMEBUFFER_COMPLETE)
-    {
-    	printf("framebuffer failed: ");
-    	switch (status)
+	auto status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+	if (status != GL_FRAMEBUFFER_COMPLETE)
+	{
+		printf("framebuffer failed: ");
+		switch (status)
 		{
 		case GL_FRAMEBUFFER_UNSUPPORTED:
 			printf("unsupported\n");
@@ -105,24 +116,60 @@ CFinalScene::CFinalScene()
 			printf("unknown error: %d (0x%x)\n", status, status);
 			break;
 		}
-    }
+	}
 
 	// render to screen
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-	lut.load("/data/opengl_new/LUT.bin");
-	setBirdEyeViewParams(lut);
+	glGenFramebuffers(1, &fboPre);
+	// 用于保存前一帧的数据
+	glGenTextures(1, &dstTexPre);
+	glBindTexture(GL_TEXTURE_2D, dstTexPre);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 1920, 1080, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glBindTexture(GL_TEXTURE_2D, 0);
+	std::cout << " 初始化dstTexPre: " << dstTexPre << std::endl;
+	glBindFramebuffer(GL_FRAMEBUFFER, fboPre);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, dstTexPre, 0);
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+
+	lut = std::make_shared<CalibLUT>();
+	lut->load("/data/opengl_new/LUT.bin");
+	setBirdEyeViewParams(*lut);
 	setSingleViewParams(singleViewWidth, singleViewHeight);
+
+
+	vgCtx = std::shared_ptr<NVGcontext>(
+		nvgCreateGLES2(NVG_ANTIALIAS | NVG_STENCIL_STROKES | NVG_DEBUG),
+		[this](NVGcontext* ctx)
+		{
+			nvgDeleteGLES2(this->vgCtx.get());
+		});
+
+	radar = RadarView(vgCtx, lut, "/data/opengl_new/param/radar.txt");
+
+	disLine = DistanceLineView(lut, "/data/opengl_new/param/distance_line.txt");
 
 	for (auto& h : isRegionHighlighted)
 	{
 		h = false;
 	}
+
+		// 透明车底功能
+	transBotC = new TransBot(fbo, dstTexPre, dstTex);
+	encoderData.x = 0;
+	encoderData.y = 0;
+	encoderData.theta = 0;
+    reset = false;
+
 }
 
 
 CFinalScene::~CFinalScene(void)
 {
+	delete transBotC;
     glDeleteFramebuffers(1, &fbo);
     glDeleteRenderbuffers(1, &rbo);
     glDeleteTextures(1, &dstTex);
@@ -130,14 +177,14 @@ CFinalScene::~CFinalScene(void)
 
 void CFinalScene::onStart()
 {
-    //getCameraDevice().startCapture(SRC_IMAGE_WIDTH,SRC_IMAGE_HEIGHT);
+    getCameraDevice().startCapture(SRC_IMAGE_WIDTH,SRC_IMAGE_HEIGHT);
     for(int i = 0;i < CAMERANUM;i++){
         m_imageTextureID[i] = createDynamicYUYVTexture2(SRC_IMAGE_WIDTH,SRC_IMAGE_HEIGHT,&m_dataBuffer[i]);
         //m_imageTextureID[i] = createDynamicYUYVTexture(SRC_IMAGE_WIDTH,SRC_IMAGE_HEIGHT,&m_dataBuffer[i]);
     }
     int colorRGB[][3] = {{139, 0, 255},{125,125,125},{0,255,0},{255,255,255},{0,0,0}};   //紫色,灰色,绿色,白色,黑色
     int curColor = g_globalParam.m_themeColor;
-    setBackGround(colorRGB[curColor][0],colorRGB[curColor][1],colorRGB[curColor][2],255);
+    setBackGround(0, 0, 0, 255);
     beginCurrentMode(g_globalParam.m_displayMode);
     getPanorama3DScene().setPanorama3dParam(gTheta[m_curView],gPhei[m_curView]);
 }
@@ -192,7 +239,7 @@ void CFinalScene::render2DView(int x, int y, int width, int height, void* data, 
 		float* mask = isRegionHighlighted[i + 4] ? highlightColor : blankColor;
 		Generate_2D_View_Merge(fbo, i, m_imageTextureID, delta, mask);
 	}
-	Generate_Car_Icon();
+
 	glViewport(0, 0, getScreenWidth(), getScreenHeight());
 }
 
@@ -209,8 +256,14 @@ void CFinalScene::renderSingleView(int camId,int x, int y, int width, int height
 	float* delta = static_cast<float*>(data);
 	glViewport(x, y, width, height);
 	Generate_SingleView(camId, m_imageTextureID, delta);
-	if(camId<2)
+	/*if(camId<2)
+	{
 		Generate_Radar_Chart(0, dynamicLineFlag);
+	}
+	else
+	{
+		disLine.draw(camId);
+	}*/
 	//Avm_ParkingTrail(dynamicLineFlag);
 	glViewport(0, 0, getScreenWidth(), getScreenHeight());
 }
@@ -223,6 +276,89 @@ void CFinalScene::renderTrail(int x, int y, int width, int height, bool applyTra
 	glViewport(0, 0, getScreenWidth(), getScreenHeight());
 	#endif
 }
+
+void CFinalScene::renderTexView(GLint textureID, int x, int y, int width, int height,
+								glm::mat4 transMatrix)
+{
+	glViewport(x, y, width, height);
+	// auto vg = vgCtx.get();
+	// nvgBeginFrame(vg, 1920, 1080, 1);
+
+	// auto imgHandle = nvglCreateImageFromHandleGLES2(vg, textureID, 1920, 1080, NVG_IMAGE_NEAREST);
+	// auto imgPaint = nvgImagePattern(vg, 0, 0, 1920, 1080, 0, imgHandle, 1.0);
+	// nvgBeginPath(vg);
+	// nvgRect(vg, 0, 0, 1920, 1080);
+	// nvgFillPaint(vg, imgPaint);
+	// nvgFill(vg);
+	// glClear(GL_STENCIL_BUFFER_BIT);
+	// nvgEndFrame(vg);
+
+	// renderImage(textureID, 0, 0, 1920, 1080, GL_RGBA, GL_UNSIGNED_BYTE, 0);
+
+	// renderImage(textureID, 0, 0, 1920, 1080, GL_RGBA, GL_UNSIGNED_BYTE, 0, transMatrix);
+
+	Generate_Image_View(textureID, x, y, width, height, transMatrix);
+
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	glEnable(GL_BLEND);
+	Generate_Car_Icon();
+	glDisable(GL_BLEND);
+
+	glViewport(0, 0, getScreenWidth(), getScreenHeight());
+}
+void CFinalScene::copyFBOTexture(GLsizei srcWidth, GLsizei srcHeight, GLsizei srcDepth){
+#if 0
+
+	glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+    int format = GL_RGBA;
+    int type = GL_UNSIGNED_BYTE;
+
+    //unsigned char* output_image = new unsigned char[1920 * 1080 * 4];
+    cv::Mat tmp{cv::Size{ 1920, 1080}, CV_8UC4};
+    tmp.setTo(255);
+
+    glReadPixels(0, 0, 1920, 1080, GL_RGBA, GL_UNSIGNED_BYTE, tmp.data);
+    //glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, type, tmp.data);
+
+    // for(int kk = 0; kk < 200; ++kk)
+    //  std::cout << "+++++++++" << (int)output_image[kk];
+
+    cv::imwrite("tmp.jpg",tmp);
+    //cv::waitKey(3000);
+
+/**
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, fboPre);
+    int format1 = GL_RGBA;
+    int type1 = GL_UNSIGNED_BYTE;
+
+    //unsigned char* output_image = new unsigned char[1920 * 1080 * 4];
+    cv::Mat tmp1{cv::Size{ 1920, 1080}, CV_8UC4};
+    tmp1.setTo(255);
+
+    glReadPixels(0, 0, 1920, 1080, GL_RGBA, GL_UNSIGNED_BYTE, tmp1.data);
+    //glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, type, tmp.data);
+
+    // for(int kk = 0; kk < 200; ++kk)
+    //  std::cout << "+++++++++" << (int)output_image[kk];
+
+    cv::imshow("tmp1",tmp1);
+    cv::waitKey(3000);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    */
+
+
+#endif
+
+	glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+	glBindTexture(GL_TEXTURE_2D, dstTexPre);
+	glCopyTexSubImage2D(GL_TEXTURE_2D, 0,0,0,0,0,srcWidth,srcHeight);
+	glBindTexture(GL_TEXTURE_2D, 0);
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
 
 inline void CFinalScene::setRegionHighlight(int regionId)
 {
@@ -241,9 +377,6 @@ extern unsigned char  mem_tmp_T1[1280*720*2];
 extern unsigned char  mem_tmp_T2[1280*720*2];
 extern unsigned char  mem_tmp_T3[1280*720*2];
 
-
-//vsdk::Mat uyvyMat1[4];// = {NULL};
-//cv::Mat databufs[4];
 int readflag;
 void CFinalScene::renderToSreen()
 {
@@ -255,62 +388,65 @@ void CFinalScene::renderToSreen()
 	uint8_t* ptr = NULL;
     //changeView();
 	vsdk::SMat databufs[4];
-	usleep(30000);
+	//usleep(30000);
 	Timer<> timer;
 	timer.start();
-	//static vsdk::UMat *uyvyMat[4] = {NULL};
-	//static vsdk::Mat uyvyMat1(720,1280,CV_8UC2,mem_tmp_T0);
+
 	readflag = 1;
     for(int i = 0; i < CAMERANUM; i++)
     {
 		//从摄像头设备中取出一个图像缓冲区Calib_Bird_View
-		#if 0
-		
-		#if defined(PLATFORM_X11)
-			databufs[i] = getCameraDevice().getImageBuffer(i);
-		#elif defined(PLATFORM_S32V)
-			MatType& databuf = getCameraDevice().getBuffer(i);
-			//MatType& databuf= getCameraDevice().getImageBuffer(i);
-			databufs[i] = databuf.getMat(vsdk::ACCESS_READ | OAL_USAGE_NONCACHED);
-			
-		#else
-		#error unsupported platform
-		#endif
-		uint8_t* ptr = databufs[i].data;
-		
-		#endif
-		ptr = frame_map[i].data;
-		//databufs[i] = uyvyMat1.getMat(vsdk::ACCESS_RW | OAL_USAGE_CACHED);
-		//  ptr =	databufs[i].data;
-		#if 0       //read front.yuv back.yuv left.yuv right.yuv
-		vsdk::UMat &dataBuf = getCameraDevice().getImageBuffer(i);
-		vsdk::Mat mat = dataBuf.getMat(vsdk::ACCESS_READ | OAL_USAGE_CACHED);
+ #if 1
+
+ 	//#if defined(PLATFORM_X11)
+ 	//	databufs[i] = getCameraDevice().getImageBuffer(i);
+ 	//#elif defined(PLATFORM_S32V)
+ 		MatType& databuf = getCameraDevice().getBuffer(i);
+ 		//MatType& databuf= getCameraDevice().getImageBuffer(i);
+ 		databufs[i] = databuf.getMat(vsdk::ACCESS_READ | OAL_USAGE_NONCACHED);
+	// #else
+ 	//	#error unsupported platform
+ 	//#endif
+ 		 ptr = databufs[i].data;
+
+ #endif
+ #if 0       //read front.yuv back.yuv left.yuv right.yuv
+ 		vsdk::UMat &dataBuf = getCameraDevice().getImageBuffer(i);
+ 		vsdk::Mat mat = dataBuf.getMat(vsdk::ACCESS_READ | OAL_USAGE_CACHED);
 		ptr = mat.data;
-		#endif
-		#if 0         //read camdata from videotask
-    	if(uyvyMat[i] == NULL)
-		{
-            uyvyMat[i] = new vsdk::UMat(SRC_IMAGE_HEIGHT,SRC_IMAGE_WIDTH,CV_8UC2);
-    	}
-		databufs[i] = uyvyMat[i]->getMat(vsdk::ACCESS_WRITE | OAL_USAGE_CACHED);
-		ptr = databufs[i].data;
-		memcpy( (unsigned char *)ptr, mem_tmp_T0, 1280*720*2 );
-		#endif
+ #endif
+ #if 0          //read camdata from videotask
+     	if(uyvyMat[i] == NULL)
+ 		{
+             uyvyMat[i] = new vsdk::UMat(SRC_IMAGE_HEIGHT,SRC_IMAGE_WIDTH,CV_8UC2);
+     	}
+ 		databufs[i] = uyvyMat[i]->getMat(vsdk::ACCESS_WRITE | OAL_USAGE_CACHED);
+ 		ptr = databufs[i].data;
+ 		memcpy( (unsigned char *)ptr, mem_tmp_T0, 1280*720*2 );
+ #endif
 		//ptr = databufs[i].data;
+		//ptr = frame_map[i].data;
+		#if 0
+		static const char* filename[] = {"front.bmp", "back.bmp", "left.bmp", "right.bmp"};
+		cv::Mat bgr = cv::imread(filename[i]);
+		cv::cvtColor(bgr, databufs[i], cv::COLOR_BGR2RGB);
+		uint8_t* ptr = databufs[i].data;
+
+		glBindTexture(GL_TEXTURE_2D, m_imageTextureID[i]);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, SRC_IMAGE_WIDTH, SRC_IMAGE_HEIGHT, 0, GL_RGB, GL_UNSIGNED_BYTE, databufs[i].data);
+		#endif
 	   /**********************************************************************************/
-		
-        updateYUYVTexture2(i,m_imageTextureID[i],ptr,SRC_IMAGE_WIDTH,SRC_IMAGE_HEIGHT);
+		updateYUYVTexture2(i,m_imageTextureID[i],ptr,SRC_IMAGE_WIDTH,SRC_IMAGE_HEIGHT);
 		
 		//释放摄像头设备中取出的图像缓冲区
 
-		#if 0
+		#if 1
 		#if defined(PLATFORM_S32V)
 				getCameraDevice().giveBackBuffer(i);
-				//getCameraDevice().giveBackImageBuffer(i);
 		#else
 				getCameraDevice().giveBackImageBuffer(i);
 		#endif
-		#endif 
+		#endif
     }
 	readflag = 0;
 	timer.stop();
@@ -322,12 +458,12 @@ void CFinalScene::renderToSreen()
 	{
 		//printf("databufs[%d]: width = %d, height = %d, channels = %d\n", i, databufs[i].size().width, databufs[i].size().height, databufs[i].channels());
 	}
-	//timer.start();
-	//calcExposureGainUYVY<cv::Vec3b>(databufs, lut, delta);
-	//timer.stop();
+	timer.start();
+	//calcExposureGainUYVY<cv::Vec3b>(databufs, *lut, delta);
+	timer.stop();
 	//std::cout << "calcExposureGain: " << timer.get() << std::endl;
 #else
-	//calcExposureGainBGR<cv::Vec3b>(databufs, lut, delta);
+	//calcExposureGainBGR<cv::Vec3b>(databufs, *lut, delta);
 #endif
 
     index++;
@@ -346,6 +482,26 @@ void CFinalScene::renderToSreen()
 		static int aaa = m_imageTextureID[0];
 
 		void* data = static_cast<void*>(delta);
+		{
+			// 透明车底功能
+
+			// 2019-06-13:
+			//  实现方法:后台运行一个全屏2d拼接
+
+			bevTransformMatrix = glm::rotate(glm::mat4(1.0), glm::radians(90.0f), glm::vec3(0.0, 0.0, 1.0));
+			render2DView(0, 0, getScreenWidth(), getScreenHeight(), data, fbo);
+			// render2DView(0, 0, getScreenWidth(), getScreenHeight(), data, 0);
+
+			//renderTexView(dstTexPre,birdEyeViewX, birdEyeViewY, birdEyeViewWidth, birdEyeViewHeight);
+
+			transBotC->setTransMatrix(bevTransformMatrix);
+			transBotC->generateTransBot(encoderData, reset);
+
+			// 将当前fbo中的数据赋值到dstTexPre纹理中
+			copyFBOTexture(getScreenWidth(), getScreenHeight(), 0);
+			//renderFBOView(birdEyeViewX, birdEyeViewY, getScreenWidth(), getScreenHeight());
+		}
+
 		static int cnt;
 		//switch (mode)
 
@@ -353,20 +509,27 @@ void CFinalScene::renderToSreen()
 		{
 			cnt = 181;
 		}
-		SwitchChannelNum = 1;
+		//SwitchChannelNum = 3;
+
+
+		glm::mat4 transMatrix2w3 = glm::rotate(glm::mat4(1.0), glm::radians(-90.0f), glm::vec3(0.0, 0.0, 1.0));
+		auto vg = vgCtx.get();
+		//nvgBeginFrame(vg, getScreenWidth(), getScreenHeight(), 1.0);
+
 		switch(SwitchChannelNum)
 		{
 			//case SceneMode::Scene2D:
 			case 0:
 				rotated = true;
 				bevTransformMatrix = glm::rotate(glm::mat4(1.0), glm::radians(90.0f), glm::vec3(0.0, 0.0, 1.0));
-				render2DView(0, 0, getScreenWidth(), getScreenHeight(), data);
+				// renderTexView(dstTex, 0, 0, getScreenWidth(), getScreenHeight());
+				renderTexView(dstTex, 0, 0, getScreenWidth(), getScreenHeight());
 				break;
-			
+
 			//case SceneMode::Scene2DWithSingle:
 			case 1:
 				bevTransformMatrix = glm::mat4(1.0);
-				render2DView(birdEyeViewX, birdEyeViewY, birdEyeViewWidth, birdEyeViewHeight, data);
+				renderTexView(dstTex, birdEyeViewX, birdEyeViewY, birdEyeViewWidth, birdEyeViewHeight, transMatrix2w3);
 				renderTrail(birdEyeViewX, birdEyeViewY, birdEyeViewWidth, birdEyeViewHeight, false);
 				renderSingleView(0,singleViewX, singleViewY, singleViewWidth, singleViewHeight, data);
 				renderTrail(singleViewX, singleViewY, singleViewWidth, singleViewHeight, true);
@@ -375,16 +538,16 @@ void CFinalScene::renderToSreen()
 				break;
 			case 2:
 				bevTransformMatrix = glm::mat4(1.0);
-				render2DView(birdEyeViewX, birdEyeViewY, birdEyeViewWidth, birdEyeViewHeight, data);
+				renderTexView(dstTex, birdEyeViewX, birdEyeViewY, birdEyeViewWidth, birdEyeViewHeight, transMatrix2w3);
 				renderTrail(birdEyeViewX, birdEyeViewY, birdEyeViewWidth, birdEyeViewHeight, false);
 				renderSingleView(1,singleViewX, singleViewY, singleViewWidth, singleViewHeight, data);
 				renderTrail(singleViewX, singleViewY, singleViewWidth, singleViewHeight, true);
 				Generate_Image_View("/data/opengl_new/direction_back.bmp",810, 0, 320, 270);
 				Generate_Image_View("/data/opengl_new/warningLogo.bmp",810+320, 0, 800, 270);
 				break;
-			case 3:  
+			case 3:
 				bevTransformMatrix = glm::mat4(1.0);
-				render2DView(birdEyeViewX, birdEyeViewY, birdEyeViewWidth, birdEyeViewHeight, data);
+				renderTexView(dstTex, birdEyeViewX, birdEyeViewY, birdEyeViewWidth, birdEyeViewHeight, transMatrix2w3);
 				renderTrail(birdEyeViewX, birdEyeViewY, birdEyeViewWidth, birdEyeViewHeight, false);
 				renderSingleView(2,singleViewX, singleViewY, singleViewWidth, singleViewHeight, data);
 				renderTrail(singleViewX, singleViewY, singleViewWidth, singleViewHeight, true);
@@ -393,7 +556,7 @@ void CFinalScene::renderToSreen()
 				break;
 			case 4:
 				bevTransformMatrix = glm::mat4(1.0);
-				render2DView(birdEyeViewX, birdEyeViewY, birdEyeViewWidth, birdEyeViewHeight, data);
+				renderTexView(dstTex, birdEyeViewX, birdEyeViewY, birdEyeViewWidth, birdEyeViewHeight, transMatrix2w3);
 				renderTrail(birdEyeViewX, birdEyeViewY, birdEyeViewWidth, birdEyeViewHeight, false);
 				renderSingleView(3,singleViewX, singleViewY, singleViewWidth, singleViewHeight, data);
 				renderTrail(singleViewX, singleViewY, singleViewWidth, singleViewHeight, true);
@@ -406,7 +569,7 @@ void CFinalScene::renderToSreen()
 			{
 				float yoffset = (-0.5);
 				bevTransformMatrix = glm::mat4(1.0);
-				render2DView(birdEyeViewX, birdEyeViewY, birdEyeViewWidth, birdEyeViewHeight, data);
+				renderTexView(dstTex, birdEyeViewX, birdEyeViewY, birdEyeViewWidth, birdEyeViewHeight, transMatrix2w3);
 				bevTransformMatrix = glm::scale(glm::mat4(1.0), glm::vec3(2.0, 2.0, 0.0));
 				bevTransformMatrix = glm::translate(bevTransformMatrix, glm::vec3(0.0, yoffset, 0.0));
 				render2DView(singleViewX, singleViewY, singleViewWidth, singleViewHeight, data);
@@ -418,7 +581,7 @@ void CFinalScene::renderToSreen()
 			{
 				float yoffset = (0.5);
 				bevTransformMatrix = glm::mat4(1.0);
-				render2DView(birdEyeViewX, birdEyeViewY, birdEyeViewWidth, birdEyeViewHeight, data);
+				renderTexView(dstTex, birdEyeViewX, birdEyeViewY, birdEyeViewWidth, birdEyeViewHeight, transMatrix2w3);
 				bevTransformMatrix = glm::scale(glm::mat4(1.0), glm::vec3(2.0, 2.0, 0.0));
 				bevTransformMatrix = glm::translate(bevTransformMatrix, glm::vec3(0.0, yoffset, 0.0));
 				render2DView(singleViewX, singleViewY, singleViewWidth, singleViewHeight, data);
@@ -441,14 +604,14 @@ void CFinalScene::renderToSreen()
 				render2DView(singleViewX, singleViewY, singleViewWidth, singleViewHeight, data);
 				break;
 			}
-			#endif 
+			#endif
 			//case SceneMode::Scene2DWithZoomLeftRight:
 			case 7:
 			{
 				float xoffset = 0.5;
 				float scale = 2.5;
 				bevTransformMatrix = glm::mat4(1.0);
-				render2DView(birdEyeViewX, birdEyeViewY, birdEyeViewWidth, birdEyeViewHeight, data);
+				renderTexView(dstTex, birdEyeViewX, birdEyeViewY, birdEyeViewWidth, birdEyeViewHeight, transMatrix2w3);
 				renderTrail(birdEyeViewX, birdEyeViewY, birdEyeViewWidth, birdEyeViewHeight, false);
 
 				bevTransformMatrix = glm::scale(glm::mat4(1.0), glm::vec3(scale, scale, 0.0));
@@ -468,8 +631,8 @@ void CFinalScene::renderToSreen()
 			//	break;
 			//case SceneMode::Scene3D:
 			case 8:
-				{	
-					
+				{
+
 					Timer<> timer;
 					timer.start();
 					if(cnt <= 180)
@@ -486,7 +649,7 @@ void CFinalScene::renderToSreen()
 			case 9:
 				bevTransformMatrix = glm::mat4(1.0);
 				render3DView(threeDViewX, threeDViewY, threeDViewWidth, threeDViewHeight, data);
-				render2DView(birdEyeViewX, birdEyeViewY, birdEyeViewWidth, birdEyeViewHeight, data);
+				renderTexView(dstTex, birdEyeViewX, birdEyeViewY, birdEyeViewWidth, birdEyeViewHeight, transMatrix2w3);
 				renderTrail(birdEyeViewX, birdEyeViewY, birdEyeViewWidth, birdEyeViewHeight, false);
 				Generate_Image_View("/data/opengl_new/direction_3d.bmp",810, 0, 320, 270);
 				Generate_Image_View("/data/opengl_new/warningLogo.bmp",810+320, 0, 800, 270);
@@ -495,6 +658,10 @@ void CFinalScene::renderToSreen()
 				break;
 		}
 		glViewport(0, 0, getScreenWidth(), getScreenHeight());
+
+		// glClear(GL_STENCIL_BUFFER_BIT);
+		// nvgEndFrame(vg);
+
 		#if 0
 		for(int i = 0;i<0;i++)
 		{

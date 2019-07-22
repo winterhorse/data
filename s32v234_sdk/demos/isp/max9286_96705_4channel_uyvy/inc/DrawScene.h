@@ -4,6 +4,7 @@
 
 #include <iostream>
 #include "opencv2/core.hpp"
+#include <glm/glm.hpp>
 #include "LUT.h"
 using namespace std;
 
@@ -26,8 +27,9 @@ void Generate_Trail(float steeringAngle, float len, float width);
 void Generate_2D_View(GLuint fbo, GLuint Camera_Num_Flag,GLuint *textureID, const float* delta, const float* mask);
 void Generate_2D_View_Merge(GLuint fbo, GLuint Camera_Num_Flag,GLuint *textureID, const float* delta, const float* mask);
 void Generate_Car_Icon();
+void Generate_Car_Icon_Background();
 void Generate_Image_View(const char* filename, int x, int y, int width, int height);
-void Generate_Image_View(GLuint tex, int x, int y, int width, int height);
+void Generate_Image_View(GLuint tex, int x, int y, int width, int height, const glm::mat4& transformMatrix = glm::mat4(1.0));
 
 
 void Calib_2D_Ver_FrontBack(GLuint Camera_Num_Flag,GLfloat *Vertex_pos,GLfloat *Vertex_tex,unsigned int *Vertex_index,GLfloat START_X,GLfloat START_Y,GLfloat WIDTH,GLfloat HEIGHT);

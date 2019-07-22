@@ -797,7 +797,7 @@ void frame_get_data(unsigned char *r_buffer, unsigned char len)
 		McuSendDada_Ptr->actual_steering_wheel_angle    = McuSend_PcReadData.actual_steering_wheel_angle;
 
 
-		printf("McuSendDada_Ptr->CarSpeed=%d,yaw_rate=%d,actual_steering_wheel_angle=%d\n",McuSendDada_Ptr->CarSpeed,McuSendDada_Ptr->yaw_rate,McuSendDada_Ptr->actual_steering_wheel_angle);
+		//printf("McuSendDada_Ptr->CarSpeed=%d,yaw_rate=%d,actual_steering_wheel_angle=%d\n",McuSendDada_Ptr->CarSpeed,McuSendDada_Ptr->yaw_rate,McuSendDada_Ptr->actual_steering_wheel_angle);
 		//if(McuSend_PcReadData.CarSpeed < 1) //  MG <0.01  ROEWE <6 ，除去MG和ROEWE车，自2019.3.21日起，新装车型，MCU上传车速CarSpeed为0（停止状态）和1（运动状态）两种状态量
 		//	Car_Speed_Flag = 0; //车停止状态
 		//else 
@@ -1214,9 +1214,9 @@ void *Uart_TX_thread(void *t)
 			}//*/
 			usleep(10000);
 		}
-		printf("lanewidth=%d\n",LanelineData_Ptr->lane_width);
-		printf("left_a0=%f,left_width=%d\n",LanelineData_Ptr->left_a0,LanelineData_Ptr->left_width);
-		printf("right_a0=%f,right_width=%d\n",LanelineData_Ptr->right_a0,LanelineData_Ptr->right_width);
+		//printf("lanewidth=%d\n",LanelineData_Ptr->lane_width);
+		//printf("left_a0=%f,left_width=%d\n",LanelineData_Ptr->left_a0,LanelineData_Ptr->left_width);
+		//printf("right_a0=%f,right_width=%d\n",LanelineData_Ptr->right_a0,LanelineData_Ptr->right_width);
 	}
 }
 

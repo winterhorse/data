@@ -998,6 +998,86 @@ void Merge_Calib_2D_Ver_FrontBack(GLuint Camera_Num_Flag,GLfloat *Vertex_pos,GLf
 	delete[] left_Calib;
 }
 
+void Generate_Car_Icon_Background()
+{
+	//drawFilledRect(carIconRect.x, carIconRect.y, carIconRect.width, carIconRect.height, viewWidth, viewHeight, bevTransformMatrix);
+	static GLuint positionVBO = 0;
+	static GLuint colorVBO = 0;
+	static GLuint indexVBO = 0;
+
+	static GLuint program = 0;
+	static GLint positionAttr = 0;
+	static GLint colorAttr = 0;
+	static GLint transformMatrixUnif = 0;
+	static bool isProgramLoad = false;
+
+	if (!isProgramLoad)
+	{
+		if (loadShaders("/data/opengl_new/shader/line.vert", "/data/opengl_new/shader/line.frag", program) != 0)
+		{
+			throw std::runtime_error("couldn't load line.vert/line.frag");
+		}
+		positionAttr = glGetAttribLocation(program, "aPosition");
+		colorAttr = glGetAttribLocation(program, "aColor");
+		transformMatrixUnif = glGetUniformLocation(program, "uTransformMatrix");
+
+		float rectX = carIconRect.x / (bevWidth / 2.0) - 1.0;
+		float rectY = 1.0 - carIconRect.y / (bevHeight / 2.0);
+		float rectWidth = 2.0 * carIconRect.width / bevWidth;
+		float rectHeight = 2.0 * (carIconRect.height / bevHeight);
+
+		std::vector<GLfloat> positions = {
+			rectX, rectY,
+			rectX, rectY - rectHeight,
+			rectX + rectWidth, rectY - rectHeight,
+			rectX + rectWidth, rectY
+		};
+
+		std::vector<GLfloat> color = {
+			0.0, 0.0, 0.0, 1.0,
+			0.0, 0.0, 0.0, 1.0,
+			0.0, 0.0, 0.0, 1.0,
+			0.0, 0.0, 0.0, 1.0
+		};
+
+		std::vector<GLushort> indices = {
+			0, 1, 2, 0, 2, 3
+		};
+
+		glGenBuffers(1, &positionVBO);
+		glGenBuffers(1, &colorVBO);
+		glGenBuffers(1, &indexVBO);
+		glBindBuffer(GL_ARRAY_BUFFER, positionVBO);
+		glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat) * positions.size(), positions.data(), GL_STATIC_DRAW);
+
+		glBindBuffer(GL_ARRAY_BUFFER, colorVBO);
+		glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat) * color.size(), color.data(), GL_STATIC_DRAW);
+
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexVBO);
+		glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(GLushort) * indices.size(), indices.data(), GL_STATIC_DRAW);
+		isProgramLoad = true;
+	}
+
+	glUseProgram(program);
+	glUniformMatrix4fv(transformMatrixUnif, 1, GL_FALSE, glm::value_ptr(bevTransformMatrix));
+
+	glBindBuffer(GL_ARRAY_BUFFER, positionVBO);
+	glVertexAttribPointer(positionAttr, 2, GL_FLOAT, GL_FALSE, 0, nullptr);
+
+	glBindBuffer(GL_ARRAY_BUFFER, colorVBO);
+	glVertexAttribPointer(colorAttr, 4, GL_FLOAT, GL_FALSE, 0, nullptr);
+
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexVBO);
+
+	glEnableVertexAttribArray(positionAttr);
+	glEnableVertexAttribArray(colorAttr);
+
+	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, 0);
+
+	glDisableVertexAttribArray(colorAttr);
+	glDisableVertexAttribArray(positionAttr);
+}
+
 void Generate_Car_Icon()
 {
 	static GLuint program;
@@ -1026,15 +1106,18 @@ void Generate_Car_Icon()
 		samplerUnif = glGetUniformLocation(program, "uTexture");
 		transformMatrixUnif = glGetUniformLocation(program, "uTransformMatrix");
 
-		float rectX = carIconRect.x / (bevWidth / 2.0) - 1.0;
+		float widthScale = carIconRect.width  / 340.0;
+		float heightScale = carIconRect.height / 840.0;
+
+		float rectX = (carIconRect.x - widthScale * 40.0)  / (bevWidth / 2.0) - 1.0;
 		float rectY = 1.0 - carIconRect.y / (bevHeight / 2.0);
-		float rectWidth = 2.0 * (carIconRect.width + 7) / bevWidth;
-		float rectHeight = 2.0 * (carIconRect.height + 2) / bevHeight;
+		float rectWidth = 2.0 * (carIconRect.width + widthScale * 40.0 * 2) / bevWidth;
+		float rectHeight = 2.0 * carIconRect.height / bevHeight;
 
 		std::vector<GLfloat> positions = {
 			rectX, rectY,
- 			rectX, rectY - rectHeight,
- 			rectX + rectWidth, rectY - rectHeight,
+			rectX, rectY - rectHeight,
+			rectX + rectWidth, rectY - rectHeight,
 			rectX + rectWidth, rectY
 		};
 
@@ -1057,12 +1140,15 @@ void Generate_Car_Icon()
 
 		cv::Mat bgra = cv::imread("/data/opengl_new/car_icon.png", cv::IMREAD_UNCHANGED);
 		cv::cvtColor(bgra, icon, cv::COLOR_BGRA2RGBA);
+		//icon = bgra.clone();
+
+//		cv::imshow("icon", icon);
+//		cv::waitKey(0);
 
 		glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 		glGenTextures(1, &tex);
 		glBindTexture(GL_TEXTURE_2D, tex);
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, icon.size().width, icon.size().
-height, 0, GL_RGBA, GL_UNSIGNED_BYTE, icon.data);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, icon.size().width, icon.size().height, 0, GL_RGBA, GL_UNSIGNED_BYTE, icon.data);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
@@ -1073,27 +1159,26 @@ height, 0, GL_RGBA, GL_UNSIGNED_BYTE, icon.data);
 		glGenBuffers(1, &indexVBO);
 
 		glBindBuffer(GL_ARRAY_BUFFER, positionVBO);
-		glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat) * positions.size(), positions.
-data(), GL_STATIC_DRAW);
+		glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat) * positions.size(), positions.data(), GL_STATIC_DRAW);
 
 		glBindBuffer(GL_ARRAY_BUFFER, texCoordVBO);
-		glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat) * texCoords.size(), texCoords.
-data(), GL_STATIC_DRAW);
+		glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat) * texCoords.size(), texCoords.data(), GL_STATIC_DRAW);
 
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexVBO);
-		glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(GLfloat) * indices.size(), 
-indices.data(), GL_STATIC_DRAW);
+		glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(GLfloat) * indices.size(), indices.data(), GL_STATIC_DRAW);
 
 		isProgramLoad = true;
 	}
 
 	glUseProgram(program);
+
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, tex);
 	glUniform1i(samplerUnif, 0);
 
-	glUniformMatrix4fv(transformMatrixUnif, 1, GL_FALSE, glm::value_ptr(glm::mat4
-(bevTransformMatrix)));
+	glUniformMatrix4fv(transformMatrixUnif, 1, GL_FALSE, glm::value_ptr(bevTransformMatrix));
 
 	glBindBuffer(GL_ARRAY_BUFFER, positionVBO);
 	glVertexAttribPointer(positionAttr, 2, GL_FLOAT, GL_FALSE, 0, nullptr);
@@ -1111,14 +1196,15 @@ indices.data(), GL_STATIC_DRAW);
 
 }
 
-void Generate_Image_View(GLuint tex, int x, int y, int width, int height)
+
+void Generate_Image_View(GLuint tex, int x, int y, int width, int height, const glm::mat4& transformMatrix)
 {
 
 	int oldViewport[4] = {0};
 	glGetIntegerv(GL_VIEWPORT, oldViewport);
 
 	glViewport(x, y, width, height);
-	
+
 	static GLuint program;
 	static GLint positionAttr;
 	static GLint texCoordAttr;
@@ -1173,7 +1259,7 @@ data(), GL_STATIC_DRAW);
 data(), GL_STATIC_DRAW);
 
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexVBO);
-		glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(GLfloat) * indices.size(), 
+		glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(GLfloat) * indices.size(),
 indices.data(), GL_STATIC_DRAW);
 
 		isProgramLoad = true;
@@ -1185,8 +1271,7 @@ indices.data(), GL_STATIC_DRAW);
 	glBindTexture(GL_TEXTURE_2D, tex);
 	glUniform1i(samplerUnif, 0);
 
-	glUniformMatrix4fv(transformMatrixUnif, 1, GL_FALSE, glm::value_ptr(glm::mat4
-(1.0)));
+	glUniformMatrix4fv(transformMatrixUnif, 1, GL_FALSE, glm::value_ptr(transformMatrix));
 
 	glBindBuffer(GL_ARRAY_BUFFER, positionVBO);
 	glVertexAttribPointer(positionAttr, 2, GL_FLOAT, GL_FALSE, 0, nullptr);

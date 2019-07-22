@@ -82,8 +82,14 @@ ARM_APP_SRCS += main.cpp \
 		LUT.cpp \
 		trail.cpp \
 		cl_sample_timer.c  \
-		
-		
+        nanovg.c        \
+        DistanceLine.cpp    \
+        RadarView.cpp       \
+        BoxExpandView.cpp   \
+        TransBot.cpp        \
+        CVOGLBridge.cpp     \
+
+
 
 #ARM_DEFS += -DLINUX -DEGL_API_FB
 ARM_DEFS += -DLINUX -DEGL_API_FB -DGPU_TYPE_VIV -DGL_GLEXT_PROTOTYPES -DPLATFORM_S32V
@@ -135,7 +141,7 @@ ARM_APP_LIBS +=                                              \
     ${SDK_ROOT}/libs/opengl/share/OpenCV/3rdparty/lib/libzlib.a           \
     $(SDK_ROOT)/libs/io/sdi/$(ODIR)/libsdi.a                    \
     $(SDK_ROOT)/libs/io/gdi/$(ODIR)/libgdi.a                    \
-    
+
 ARM_LDOPTS +=                                                             \
     -lopencv_core -lopencv_imgproc -lopencv_imgcodecs                     \
     -lstdc++ -lm -lGLESv2 -lEGL -ldl -Wl,--library-path=$(SDK_ROOT)/3rdparty/opengl/lib,-rpath-link=$(SDK_ROOT)/3rdparty/opengl/lib \
@@ -145,27 +151,27 @@ ARM_LDOPTS +=                                                             \
     -lVivanteOpenCL   							\
     -lOpenCL          							\
     -lGAL                                                               \
-    
-    
-    ifneq (,$(findstring gnu-sa,$(ODIR))) 
+
+
+    ifneq (,$(findstring gnu-sa,$(ODIR)))
   ARM_APP_LIBS +=                                                         \
     $(SDK_ROOT)/libs/io/i2c/$(ODIR)/libi2c.a                              \
     $(SDK_ROOT)/libs/io/dcu/$(ODIR)/libdcu.a                              \
 
 endif
 
-ifneq (,$(findstring gnu-linux,$(ODIR))) 
+ifneq (,$(findstring gnu-linux,$(ODIR)))
   ARM_APP_LIBS +=                                                         \
     $(SDK_ROOT)/libs/isp/jpegdec/user/$(ODIR)/libjpegdecdrv.a             \
     $(SDK_ROOT)/libs/isp/h264enc/user/$(ODIR)/libh264encdrv.a             \
     $(SDK_ROOT)/libs/isp/h264dec/user/$(ODIR)/libh264decdrv.a             \
     $(SDK_ROOT)/libs/isp/viu/user/$(ODIR)/libviudrv.a                     \
-    
+
 endif
 
 ##############################################################################
 # STANDALONE SPECIFIC INCLUDES
-##############################################################################	
+##############################################################################
 ifneq (,$(findstring -sa,$(ODIR)))
 
 ARM_APP_LIBS +=                                                              \
@@ -173,5 +179,5 @@ ARM_APP_LIBS +=                                                              \
     $(SDK_ROOT)/libs/io/i2c/$(ODIR)/libi2c.a                                 \
     $(SDK_ROOT)/libs/io/semihost/$(ODIR)/libSemihost.a                       \
     $(SDK_ROOT)/libs/io/uartlinflex_io/$(ODIR)/liblinflex.a                 \
-    
+
 endif

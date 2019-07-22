@@ -142,6 +142,7 @@ void updateRGBTexture(GLuint textureID,char *buffer)
     glBindTexture(GL_TEXTURE_2D, textureID);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, ilGetInteger(IL_IMAGE_WIDTH),ilGetInteger(IL_IMAGE_HEIGHT), 0, GL_RGB, GL_UNSIGNED_BYTE,ilGetData());
 }
+
 GLuint createDynamicYUYVTexture2(int width,int height,GLvoid **buffer)
 {
     GLuint textureObject = 0;

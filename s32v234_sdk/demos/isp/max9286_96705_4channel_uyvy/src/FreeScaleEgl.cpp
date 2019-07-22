@@ -65,8 +65,6 @@ void initEGL(EGLNativeDisplayType nativeDisplay, EGLNativeWindowType windowType)
 	{
 		printf("eglMakeCurrent OK\n");
 	}
-	EGLBoolean ret = eglSwapInterval(g_egldisplay, 1);
-	printf("eglSwapInterval() = %d\n", ret);
 }
 
 void deinitEGL(void)

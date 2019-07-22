@@ -20,8 +20,8 @@
 * THE POSSIBILITY OF SUCH DAMAGE.
 *
 ****************************************************************************/
-#include <pthread.h>  
-#include <stdio.h> 
+#include <pthread.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include "ImageStitching.h"
 #include "uart_to_mcu.h"
@@ -94,7 +94,7 @@ using namespace keyboard_device;   //ʹ�ñ�׼�����豸
 
 //****************************************************************************//
 using namespace cv;
-extern unsigned int McuTimeData; 
+extern unsigned int McuTimeData;
 extern unsigned long long Mcu_tt;
 unsigned long long Soc_tt;
 BasicData *BasicData_Ptr;
@@ -281,9 +281,9 @@ int main(int, char **)
 	int ret = 0;
 	pthread_t gltask,cltask,keytask,tertask,guitask,uartrxtask,uarttxtask,videotask,id1;
 	pthread_t  net_staus_thread,tr_thread,rv_thread;
-		
+
 	Ipc_Create();
-	pthread_create(&videotask, NULL, VideoCaptureTask,NULL);
+	 //pthread_create(&videotask, NULL, VideoCaptureTask,NULL);
 
 	sleep(2);
 	printf("start GLTask\n");
@@ -293,7 +293,7 @@ int main(int, char **)
 		printf("Create GL Task error!\n");
 		return 1;
 	}
-	
+
 	//ret = pthread_create(&cltask, NULL, CLTask,NULL);
 	if(ret)
 	{
@@ -314,34 +314,34 @@ int main(int, char **)
 		printf("Create TerminalTask error!\n");
 		return 1;
 	}
-	
+
 	//ret = pthread_create(&guitask, NULL, Gui_meg_thread,NULL);
 	//pthread_create(&id1, NULL, Gui_draw_thread,NULL);
-///	if(ret)	
-///	{		
-///		printf("Create Gui_meg_thread error!\n");		
-///		return 1;	
+///	if(ret)
+///	{
+///		printf("Create Gui_meg_thread error!\n");
+///		return 1;
 ///	}
-	
+
 	ret = pthread_create(&uartrxtask, NULL, Uart_meg_thread,NULL);
 	if(ret)
-	{		
+	{
 		printf("Create Uart_meg_thread error!\n");
 		return 1;
 	}
 	ret = pthread_create(&uarttxtask, NULL, Uart_TX_thread,NULL);
-	if(ret)	
-	{		
-		printf("Create Uart_TX_thread error!\n");		
-		return 1;	
-	}	
-	ret = pthread_create(&tr_thread, NULL, net_tr_thread, NULL);	
-	if(ret)	
-	{		
-		printf("Create net_tr_thread error!\n");		
-		return 1;	
-	}	
-	pthread_join(videotask,NULL);
+	if(ret)
+	{
+		printf("Create Uart_TX_thread error!\n");
+		return 1;
+	}
+	ret = pthread_create(&tr_thread, NULL, net_tr_thread, NULL);
+	if(ret)
+	{
+		printf("Create net_tr_thread error!\n");
+		return 1;
+	}
+	// pthread_join(videotask,NULL);
 	//pthread_join(cltask,NULL);
 	pthread_join(gltask,NULL);
 	pthread_join(keytask,NULL);
@@ -355,7 +355,7 @@ int main(int, char **)
 #endif
 
 //int main(int, char **)
-void *VideoCaptureTask(void *ptr1) 
+void *VideoCaptureTask(void *ptr1)
 {
   LIB_RESULT lRet = LIB_SUCCESS;
   LIB_RESULT lRes = LIB_SUCCESS;
@@ -455,7 +455,7 @@ void *VideoCaptureTask(void *ptr1)
   uint8_t lLoop=0;
   uint8_t num=0;
 
-  
+
   static int nn;
   static int numCopy;
   static short int McuSendOffsetCopy[10*3];
@@ -467,29 +467,27 @@ void *VideoCaptureTask(void *ptr1)
   frameDataPtr[3] = mem_tmp_T3;
   while(1)
   {
-	  for (int i = 0;i < 4;i++)   
+	  for (int i = 0;i < 4;i++)
 	  {
-		  lFrame[i] = lpGrabber->FramePop(i);		   
+		  lFrame[i] = lpGrabber->FramePop(i);
 		  /*IFrame[0] -->T1 ,IFrame[1] -->T2 ,IFrame[2] -->T3 ,IFrame[3] -->T4 ****wyf added 2017.11.29**/
 		  if(lFrame[i].mUMat.empty())
 		  {
 			  printf("Failed to grab image number %u\n", i);
 			  //break;
 		  } // if pop failed
-	  }   
-	  //GETTIME(&lTimeEnd2); 
-	  //time_elapsed = (lTimeEnd2-lTimeStart2)/1000;  
-	  //GETTIME(&lTimeStart2); 
-	  #if 1
-	  for (int i = 0;i < 4;i++) 
-	  {
-		  frame_map[i] = lFrame[i].mUMat.getMat(vsdk::ACCESS_RW | OAL_USAGE_CACHED); 
-		  //uyvyMat1[i]   = lFrame[i].mUMat.getMat(vsdk::ACCESS_READ | OAL_USAGE_NONCACHED);  
-		  //memcpy(&frame_map_display[i][0], frame_map[i].data,  1280*720*2 );
 	  }
-	   frame_map_out = lFrame[3].mUMat.getMat(vsdk::ACCESS_RW | OAL_USAGE_CACHED); 
-	 
-	  buf_camfront = (unsigned char *)frame_map[0].data; 
+	  //GETTIME(&lTimeEnd2);
+	  //time_elapsed = (lTimeEnd2-lTimeStart2)/1000;
+	  //GETTIME(&lTimeStart2);
+	  #if 1
+	  for (int i = 0;i < 4;i++)
+	  {
+		  frame_map[i] = lFrame[i].mUMat.getMat(vsdk::ACCESS_RW | OAL_USAGE_CACHED);
+	  }
+	   frame_map_out = lFrame[3].mUMat.getMat(vsdk::ACCESS_RW | OAL_USAGE_CACHED);
+
+	  buf_camfront = (unsigned char *)frame_map[0].data;
 	  buf_camback  = (unsigned char *)frame_map[1].data;
 	  buf_camleft  = (unsigned char *)frame_map[2].data;
 	  buf_camright = (unsigned char *)frame_map[3].data;
@@ -498,28 +496,7 @@ void *VideoCaptureTask(void *ptr1)
 	  //memcpy(mem_tmp_T2,  (unsigned char *)frame_map[2].data,  1280*720*2 );
 	  //memcpy(mem_tmp_T3,  (unsigned char *)frame_map[3].data, 1280*720*2 );
 	  #endif
-	  //(unsigned char *)uyvyMat1[0].data = buf_camfront;
-	  //(unsigned char *)uyvyMat1[1].data = mem_tmp_T1;
-	  //(unsigned char *)uyvyMat1[2].data = mem_tmp_T2;
-	  //(unsigned char *)uyvyMat1[3].data = mem_tmp_T3;
-	  /*
-	  for (int i = 0;i < 4;i++) 
-	  {
-		  if(uyvyMat1[i] == NULL)
-		  {
-			  uyvyMat1[i] = new vsdk::UMat(720,1280,CV_8UC2);
-			  databufs[i] = uyvyMat1[i]->getMat(vsdk::ACCESS_WRITE | OAL_USAGE_NONCACHED);
-			  unsigned char *ptr = databufs[i].data;
-			  memcpy(ptr, mem_tmp_T0, 1280*720*2 );
-		  }
-		  unsigned char *ptr = databufs[i].data;
-		  if(readflag == 0)
-		  {
-			  memcpy(ptr, mem_tmp_T0, 1280*720*2 );
-		  }
-	  }
-	  */
-	  ///*
+
 	  memcpy(CamData_Ptr->Mem_FrontCam, frame_map[0].data, 1280*720*2 );
 	  memcpy(CamData_Ptr->Mem_BackCam, frame_map[1].data,  1280*720*2 );
 	  memcpy(CamData_Ptr->Mem_LeftCam, frame_map[2].data,  1280*720*2 );
@@ -545,7 +522,7 @@ void *VideoCaptureTask(void *ptr1)
 	  //memcpy((unsigned char*)frame_map_out.data,  mem_tmp_T2, 1280*720*2 );
 
 	  CounterTick = GetTime( ); //获取当前基准COUNTER值
-	  
+
 	  unsigned char LA[4],LB[4],SA[4],SB[4];
 	  float dT[8];
 
@@ -555,14 +532,14 @@ void *VideoCaptureTask(void *ptr1)
 	  SB[0] = CamData_Ptr->Mem_FrontCam[10];
 	  dT[0] = (LA[0]*256+LB[0])*42.708/1000;
 	  dT[1] = (SA[0]*256+SB[0])*42.708/1000;
-	  
+
 	  LA[1] = CamData_Ptr->Mem_BackCam[9];
 	  LB[1] = CamData_Ptr->Mem_BackCam[8];
 	  SA[1] = CamData_Ptr->Mem_BackCam[11];
 	  SB[1] = CamData_Ptr->Mem_BackCam[18];
 	  dT[2] = (LA[1]*256+LB[1])*42.708/1000;
 	  dT[3] = (SA[1]*256+SB[1])*42.708/1000;
-	  
+
 	  LA[2] = CamData_Ptr->Mem_LeftCam[9];
 	  LB[2] = CamData_Ptr->Mem_LeftCam[8];
 	  SA[2] = CamData_Ptr->Mem_LeftCam[11];
@@ -590,7 +567,7 @@ void *VideoCaptureTask(void *ptr1)
 	  //printf("N7L %x,N8 %x\n",CamData_Ptr->Mem_LeftCam[6],CamData_Ptr->Mem_LeftCam[7]);
 	  //printf("N7R %x,N8 %x\n",CamData_Ptr->Mem_RightCam[6],CamData_Ptr->Mem_RightCam[7]);
 	  //printf("T0:%f,%f T1:%f,%f T2:%f,%f T3:%f,%f  dTmax=%f\n", dT[0],dT[1], dT[2],dT[3], dT[4],dT[5], dT[6],dT[7],dTmax);
-	  
+
 	  if(num >0)
 	  {
 		  numCopy = num-1;
@@ -645,14 +622,14 @@ void *VideoCaptureTask(void *ptr1)
 			  {
 			  //////////////////////////////////////////////////////////////////////////////////////////////////////
 				  if(numCopy>0)
-				  {   
+				  {
 					  numtmp = numCopy-1;
 				  }
 				  else if(numCopy == 0)
 				  {
 					  numtmp = 9;
 				  }
-				  
+
 				  float deltaX = McuSendOffsetCopy[numCopy*3]-McuSendOffsetCopy[numtmp*3];
 				  float deltaY = McuSendOffsetCopy[numCopy*3+1]-McuSendOffsetCopy[numtmp*3+1];
 				  float deltaZ = McuSendOffsetCopy[numCopy*3+2]-McuSendOffsetCopy[numtmp*3+2];
@@ -678,14 +655,14 @@ void *VideoCaptureTask(void *ptr1)
 			  {
 			  //////////////////////////////////////////////////////////////////////////////////////////////////////
 				  if(numCopy>0)
-				  {   
+				  {
 					  numtmp = numCopy-1;
 				  }
 				  else if(numCopy == 0)
 				  {
 					  numtmp = 9;
 				  }
-				  
+
 				  float deltaX = McuSendOffsetCopy[numCopy*3]-McuSendOffsetCopy[numtmp*3];
 				  float deltaY = McuSendOffsetCopy[numCopy*3+1]-McuSendOffsetCopy[numtmp*3+1];
 				  float deltaZ = McuSendOffsetCopy[numCopy*3+2]-McuSendOffsetCopy[numtmp*3+2];
@@ -703,14 +680,14 @@ void *VideoCaptureTask(void *ptr1)
 	  {
 		  //////////////////////////////////////////////////////////////////////////////////////
 		  if(numCopy>0)
-		  {   
+		  {
 			  numtmp = numCopy-1;
 		  }
 		  else if(numCopy ==0)
 		  {
 			  numtmp = 9;
 		  }
-		  
+
 		  float deltaX = McuSendOffsetCopy[numCopy*3]-McuSendOffsetCopy[numtmp*3];
 		  float deltaY = McuSendOffsetCopy[numCopy*3+1]-McuSendOffsetCopy[numtmp*3+1];
 		  float deltaZ = McuSendOffsetCopy[numCopy*3+2]-McuSendOffsetCopy[numtmp*3+2];
@@ -721,27 +698,27 @@ void *VideoCaptureTask(void *ptr1)
 		  CamData_Ptr->z = deltaZ/deltaCnt*deltaCntNow + McuSendOffsetCopy[numCopy*3+2];
 		  //printf("numCpy=%d numtmp=%d CounterTick=%llu \n",numCopy,numtmp,CounterTick);
 	  }
-	  //lDcuOutput.PutFrame(lFrame[0].mUMat); 
-	  //lDcuOutput.PutFrame(lFrame[3].mUMat); 
+	  //lDcuOutput.PutFrame(lFrame[0].mUMat);
+	  //lDcuOutput.PutFrame(lFrame[3].mUMat);
 	  //usleep(100000);
 	   for (int i = 0;i < 4;i++)  //*******;************DY****************
-	   { 
+	   {
 		  if(lpGrabber->FramePush(lFrame[i]) != LIB_SUCCESS)
 		  {
 		   printf("lpGrabber->FramePush(lFrame[i]) %d\n", i);
 			break;
 		  } // if push failed
 	   }
-	   
+
 	  // usleep(300000);
 	  //printf("wwwwwww50\n");
-	  //printf("&&&&&&&&&ParkPlaceNum =%d car_paring_status=%d\n",ParkingPlace_Ptr->ParkPlaceNum,McuSendDada_Ptr->car_paring_status);   
-  } 
+	  //printf("&&&&&&&&&ParkPlaceNum =%d car_paring_status=%d\n",ParkingPlace_Ptr->ParkPlaceNum,McuSendDada_Ptr->car_paring_status);
+  }
 } // main()
 
-void *GLTask(void *ptr1)  
-{	
-#if 0
+void *GLTask(void *ptr1)
+{
+	#if 0
 	FILE* fp = fopen("config.txt", "r");
 	if (fp == NULL)
 	{
@@ -777,7 +754,7 @@ void *GLTask(void *ptr1)
 		printf("OpenGL version: %s\n", glGetString(GL_VERSION));
 	}
 
-    //if(getCameraDevice().initCamera() != 0)   //初始化视频采集设备
+    if(getCameraDevice().initCamera() != 0)   //初始化视频采集设备
     {
          printf("can not initialize the camera device！\n");
          //return -1;
@@ -818,7 +795,7 @@ void *GLTask(void *ptr1)
         glClear(GL_COLOR_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
         int times = 0;
 #if 0
-		
+
         readFromDevice();
 	#if 0
         if((times = getKeyTimes(MY_KEY_UP)) > 0)
@@ -953,7 +930,7 @@ void *GLTask(void *ptr1)
     scene.onStart();
 
     Calib_2D_Init();
-	
+
     while(1)
     {
         glClear(GL_COLOR_BUFFER_BIT);
@@ -982,7 +959,7 @@ void *GLTask(void *ptr1)
         //printf("scene.renderToSreen()\n");
         scene.renderToSreen();
         flushToScreen();
-		
+
     }
 	  //����ִ����ϣ���һЩ�ͷ���Դ�Ĳ���
     scene.onStop();
@@ -1102,7 +1079,7 @@ int Ipc_Create()
 {
   int	 shmid1,shmid2,shmid3,shmid4,shmid5,shmid6,shmid7;
   //���������ڎ� ���൱�ڎ��Č����Č��������򎎜�
-  shmid1 = shmget(0x2234, sizeof(CamData), IPC_CREAT | 0666); 
+  shmid1 = shmget(0x2234, sizeof(CamData), IPC_CREAT | 0666);
   if (shmid1 == -1)
   {
 	  perror("shmget 1 err");
@@ -1117,7 +1094,7 @@ int Ipc_Create()
 	  return errno;
   }
 
-  shmid2 = shmget(0x3234, sizeof(ParkingPlace), IPC_CREAT | 0666); 
+  shmid2 = shmget(0x3234, sizeof(ParkingPlace), IPC_CREAT | 0666);
   if (shmid2 == -1)
   {
 	  perror("shmget 2 err");
@@ -1132,7 +1109,7 @@ int Ipc_Create()
 	  return errno;
   }
 
-  shmid3 = shmget(0x4234, sizeof(McuSendDada), IPC_CREAT | 0666); 
+  shmid3 = shmget(0x4234, sizeof(McuSendDada), IPC_CREAT | 0666);
   if (shmid3 == -1)
   {
 	  perror("shmget 3 err");
@@ -1147,7 +1124,7 @@ int Ipc_Create()
 	  return errno;
   }
 
-  shmid4 = shmget(0x5234, sizeof(PCWRITEDATA), IPC_CREAT | 0666); 
+  shmid4 = shmget(0x5234, sizeof(PCWRITEDATA), IPC_CREAT | 0666);
   if (shmid4 == -1)
   {
 	  perror("shmget 4 err");
@@ -1162,7 +1139,7 @@ int Ipc_Create()
 	  return errno;
   }
 
-  shmid5 = shmget(0x6234, sizeof(BasicData), IPC_CREAT | 0666); 
+  shmid5 = shmget(0x6234, sizeof(BasicData), IPC_CREAT | 0666);
   if (shmid5 == -1)
   {
 	  perror("shmget 5 err");
@@ -1177,7 +1154,7 @@ int Ipc_Create()
 	  return errno;
   }
 
-  shmid6 = shmget(0x7234, sizeof(LanelineData), IPC_CREAT | 0666); 
+  shmid6 = shmget(0x7234, sizeof(LanelineData), IPC_CREAT | 0666);
   if (shmid6 == -1)
   {
 	  perror("shmget 6 err");
@@ -1192,7 +1169,7 @@ int Ipc_Create()
 	  return errno;
   }
 
-  shmid7 = shmget(0x8234, sizeof(ObstacleData), IPC_CREAT | 0666); 
+  shmid7 = shmget(0x8234, sizeof(ObstacleData), IPC_CREAT | 0666);
   if (shmid7 == -1)
   {
 	  perror("shmget 7 err");
@@ -1206,7 +1183,7 @@ int Ipc_Create()
 	  perror("shmat 7 err");
 	  return errno;
   }
-  
+
 }
 
   unsigned long long GetTime(void)
@@ -1214,13 +1191,12 @@ int Ipc_Create()
 	Soc_tt=GetNowTimeUs();
 	Soc_tt=Soc_tt/1000;
 	return McuTimeData + (Soc_tt - Mcu_tt);
-	
+
 }
 
 unsigned long long GetNowTimeUs(void)
- {  
-	 struct timeval tv; 
-	 gettimeofday(&tv, NULL);	 
+ {
+	 struct timeval tv;
+	 gettimeofday(&tv, NULL);
 	 return (unsigned long long)tv.tv_sec * 1000000 + tv.tv_usec;
 }
-

@@ -26,7 +26,7 @@ cv::Point2f getGroundPoint(const cv::Point3f &camPos,const cv::Point3f &points)
 cv::Point3f getMergePoint(const cv::Point3f &point,const cv::Point3f &cameraPos1,const cv::Point3f &cameraPos2,float weight)
 {
     float minHeight = std::min(cameraPos1.z,cameraPos2.z) * 0.9;
-    if(point.z > minHeight)
+    if(point.z > 0)
     {
         return point;
     }
