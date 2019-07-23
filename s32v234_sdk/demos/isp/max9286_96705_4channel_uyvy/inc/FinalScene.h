@@ -108,7 +108,11 @@ public:
 
 	void setRegionHighlight(int regionId);
 	void unsetRegionHighlight(int regionId);
-
+	// 透明车底
+	// 2. 里程计数据
+	Encoder encoderData;
+	// 3. 透明车底类
+    bool reset;
 private:
     int m_endView;
     int m_curView;
@@ -156,10 +160,10 @@ private:
 	// 1. 前一帧的帧缓存
 	GLuint fboPre, dstTexPre;
 	// 2. 里程计数据
-	Encoder encoderData;
+	//Encoder encoderData;
 	// 3. 透明车底类
 	TransBot *transBotC;
-    bool reset;
+    //bool reset;
 };
 
 #endif

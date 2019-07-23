@@ -114,7 +114,7 @@ extern short int McuSendOffset[10*3];
 extern unsigned int McuSendCounter[10];
 extern int reset_status_changed_num;
 extern int reset_new_value_cnt;
-
+extern int reset_chang_flag;
 vsdk::SMat frame_map[4];
 
 unsigned char* frameDataPtr[4];
@@ -128,12 +128,11 @@ unsigned char  mem_tmp_T1[IMG_WIDTH*IMG_HEIGHT*2];
 unsigned char  mem_tmp_T2[IMG_WIDTH*IMG_HEIGHT*2];
 unsigned char  mem_tmp_T3[IMG_WIDTH*IMG_HEIGHT*2];
 
-
-
 void *VideoCaptureTask(void * ptr);
 void *GLTask(void * ptr);
 int Ipc_Create();
 //int saveframe(char *str, void *p, int length, int is_oneframe);
+void OpenglInit();
 
 
 //***************************************************************************
@@ -283,11 +282,12 @@ int main(int, char **)
 	pthread_t  net_staus_thread,tr_thread,rv_thread;
 
 	Ipc_Create();
-	 //pthread_create(&videotask, NULL, VideoCaptureTask,NULL);
+	//OpenglInit();
+	 pthread_create(&videotask, NULL, VideoCaptureTask,NULL);
 
-	sleep(2);
+	sleep(1);
 	printf("start GLTask\n");
-	ret = pthread_create(&gltask, NULL, GLTask,NULL);
+	//ret = pthread_create(&gltask, NULL, GLTask,NULL);
 	if(ret)
 	{
 		printf("Create GL Task error!\n");
@@ -341,9 +341,9 @@ int main(int, char **)
 		printf("Create net_tr_thread error!\n");
 		return 1;
 	}
-	// pthread_join(videotask,NULL);
+	 pthread_join(videotask,NULL);
 	//pthread_join(cltask,NULL);
-	pthread_join(gltask,NULL);
+	//pthread_join(gltask,NULL);
 	pthread_join(keytask,NULL);
 	//pthread_join(tertask,NULL);
 	//pthread_join(guitask,NULL);
@@ -354,7 +354,6 @@ int main(int, char **)
 }
 #endif
 
-//int main(int, char **)
 void *VideoCaptureTask(void *ptr1)
 {
   LIB_RESULT lRet = LIB_SUCCESS;
@@ -465,6 +464,56 @@ void *VideoCaptureTask(void *ptr1)
   frameDataPtr[1] = mem_tmp_T1;
   frameDataPtr[2] = mem_tmp_T2;
   frameDataPtr[3] = mem_tmp_T3;
+  ///////////////////////////////////////////////////////opengl init///////////////////
+  	if(initialGL(1920,1080) != 0)          //初始化opengl es环境
+    {
+	     fprintf(stderr,"opengl init unsucess!\n");
+	     //return -1;
+	}
+	printf("initialGL()::\n");
+	auto glVer = glGetString(GL_VERSION);
+	if (!glVer)
+	{
+		printf("glGetString failed: %d\n", glGetError());
+	}
+	else
+	{
+		printf("OpenGL version: %s\n", glGetString(GL_VERSION));
+	}
+
+	//if(getCameraDevice().initCamera() != 0)   //初始化视频采集设备
+	{
+	     printf("can not initialize the camera device！\n");
+	     //return -1;
+	}
+	printf("getCameraDevice()::\n");
+
+	if(initPanoramaParam() != 0){
+	    printf("can not initialize the camera param");
+	    //return -1;
+	}
+
+	printf("initPanoramaParam() success!\n");
+	//keyboard_device::initDevice();                            //使用标准键盘设备
+	printf("keyboard_device::initDevice() sucess!\n");
+	CFinalScene scene;
+	scene.setBirdEyeViewport(0,
+							 0,
+							 810,
+							 1080);
+	scene.setSingleViewport(810,
+							270,
+							1110,
+							810);
+	scene.set3DViewport(810,
+							270,
+							1110,
+							810);
+	scene.onStart();
+
+	//std::cout << displaySetting << std::endl;
+	Calib_2D_Init();
+  ///////////////////////////////////////////////////////////////////////////////////////
   while(1)
   {
 	  for (int i = 0;i < 4;i++)
@@ -641,6 +690,10 @@ void *VideoCaptureTask(void *ptr1)
 			  //printf("numCpy=%d numtmp=%d CounterTick=%llu \n",numCopy,numtmp,CounterTick);
 			  //////////////////////////////////////////////////////////////////////////////////////////////////////
 			  }
+
+			  if(CamData_Ptr->TimeStamp >= McuSendCounterCopy[reset_status_changed_num-1])
+			  	scene.reset     = reset_chang_flag%2;
+			  	
 		  }
 		  else if( reset_status_changed_num == 0)
 		  {
@@ -674,6 +727,8 @@ void *VideoCaptureTask(void *ptr1)
 			  //printf("numCpy=%d numtmp=%d CounterTick=%llu \n",numCopy,numtmp,CounterTick);
 			  //////////////////////////////////////////////////////////////////////////////////////////////////////
 			  }
+			   if(CamData_Ptr->TimeStamp >= McuSendCounterCopy[9])
+			  	scene.reset     = reset_chang_flag%2;
 		  }
 	  }
 	  else
@@ -698,9 +753,12 @@ void *VideoCaptureTask(void *ptr1)
 		  CamData_Ptr->z = deltaZ/deltaCnt*deltaCntNow + McuSendOffsetCopy[numCopy*3+2];
 		  //printf("numCpy=%d numtmp=%d CounterTick=%llu \n",numCopy,numtmp,CounterTick);
 	  }
+	  scene.encoderData.x = CamData_Ptr->x;
+	  scene.encoderData.y = CamData_Ptr->y;
+	  scene.encoderData.theta = CamData_Ptr->z;
+	  //scene.reset         = 0;
 	  //lDcuOutput.PutFrame(lFrame[0].mUMat);
 	  //lDcuOutput.PutFrame(lFrame[3].mUMat);
-	  //usleep(100000);
 	   for (int i = 0;i < 4;i++)  //*******;************DY****************
 	   {
 		  if(lpGrabber->FramePush(lFrame[i]) != LIB_SUCCESS)
@@ -709,7 +767,8 @@ void *VideoCaptureTask(void *ptr1)
 			break;
 		  } // if push failed
 	   }
-
+	   scene.renderToSreen();
+	   flushToScreen(); 
 	  // usleep(300000);
 	  //printf("wwwwwww50\n");
 	  //printf("&&&&&&&&&ParkPlaceNum =%d car_paring_status=%d\n",ParkingPlace_Ptr->ParkPlaceNum,McuSendDada_Ptr->car_paring_status);
@@ -1199,4 +1258,58 @@ unsigned long long GetNowTimeUs(void)
 	 struct timeval tv;
 	 gettimeofday(&tv, NULL);
 	 return (unsigned long long)tv.tv_sec * 1000000 + tv.tv_usec;
+}
+void OpenglInit()
+{
+	if(initialGL(1920,1080) != 0)          //初始化opengl es环境
+    {
+         fprintf(stderr,"opengl init unsucess!\n");
+         //return -1;
+    }
+    printf("initialGL()::\n");
+	auto glVer = glGetString(GL_VERSION);
+	if (!glVer)
+	{
+		printf("glGetString failed: %d\n", glGetError());
+	}
+	else
+	{
+		printf("OpenGL version: %s\n", glGetString(GL_VERSION));
+	}
+
+    //if(getCameraDevice().initCamera() != 0)   //初始化视频采集设备
+    {
+         printf("can not initialize the camera device！\n");
+         //return -1;
+    }
+    printf("getCameraDevice()::\n");
+
+    if(initPanoramaParam() != 0){
+        printf("can not initialize the camera param");
+        //return -1;
+    }
+
+
+    printf("initPanoramaParam() success!\n");
+    //keyboard_device::initDevice();                            //使用标准键盘设备
+    printf("keyboard_device::initDevice() sucess!\n");
+    CFinalScene scene;
+	scene.setBirdEyeViewport(0,
+							 0,
+							 810,
+							 1080);
+	scene.setSingleViewport(810,
+							270,
+							1110,
+							810);
+	scene.set3DViewport(810,
+							270,
+							1110,
+							810);
+    scene.onStart();
+
+
+	//std::cout << displaySetting << std::endl;
+    Calib_2D_Init();
+    //Fbo_2D_Init();
 }

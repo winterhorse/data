@@ -49,8 +49,6 @@ float view2DScale = 1.0;
 
 using namespace const_value;
 
-
-
 static const float ANGLETORADIUS = 3.141592654 / 180.0;
 //定义旋转动画的多个视角，旋转时，依次执行到下一个视角，并停顿一段时间，然后继续旋转
 static const float constPhei = 55 * ANGLETORADIUS;
@@ -177,7 +175,7 @@ CFinalScene::~CFinalScene(void)
 
 void CFinalScene::onStart()
 {
-    getCameraDevice().startCapture(SRC_IMAGE_WIDTH,SRC_IMAGE_HEIGHT);
+    //getCameraDevice().startCapture(SRC_IMAGE_WIDTH,SRC_IMAGE_HEIGHT);
     for(int i = 0;i < CAMERANUM;i++){
         m_imageTextureID[i] = createDynamicYUYVTexture2(SRC_IMAGE_WIDTH,SRC_IMAGE_HEIGHT,&m_dataBuffer[i]);
         //m_imageTextureID[i] = createDynamicYUYVTexture(SRC_IMAGE_WIDTH,SRC_IMAGE_HEIGHT,&m_dataBuffer[i]);
@@ -388,49 +386,28 @@ void CFinalScene::renderToSreen()
 	uint8_t* ptr = NULL;
     //changeView();
 	vsdk::SMat databufs[4];
+	//cv::Mat databufs[4];
 	//usleep(30000);
 	Timer<> timer;
 	timer.start();
-
 	readflag = 1;
     for(int i = 0; i < CAMERANUM; i++)
     {
 		//从摄像头设备中取出一个图像缓冲区Calib_Bird_View
- #if 1
-
- 	//#if defined(PLATFORM_X11)
- 	//	databufs[i] = getCameraDevice().getImageBuffer(i);
- 	//#elif defined(PLATFORM_S32V)
- 		MatType& databuf = getCameraDevice().getBuffer(i);
- 		//MatType& databuf= getCameraDevice().getImageBuffer(i);
+ 		#if 0
+ 		//MatType& databuf = getCameraDevice().getBuffer(i);		//Get camera video from CCameraVedioDevice
+ 		MatType& databuf= getCameraDevice().getImageBuffer(i);   	//Get yuv image
  		databufs[i] = databuf.getMat(vsdk::ACCESS_READ | OAL_USAGE_NONCACHED);
-	// #else
- 	//	#error unsupported platform
- 	//#endif
- 		 ptr = databufs[i].data;
-
- #endif
- #if 0       //read front.yuv back.yuv left.yuv right.yuv
- 		vsdk::UMat &dataBuf = getCameraDevice().getImageBuffer(i);
- 		vsdk::Mat mat = dataBuf.getMat(vsdk::ACCESS_READ | OAL_USAGE_CACHED);
-		ptr = mat.data;
- #endif
- #if 0          //read camdata from videotask
-     	if(uyvyMat[i] == NULL)
- 		{
-             uyvyMat[i] = new vsdk::UMat(SRC_IMAGE_HEIGHT,SRC_IMAGE_WIDTH,CV_8UC2);
-     	}
- 		databufs[i] = uyvyMat[i]->getMat(vsdk::ACCESS_WRITE | OAL_USAGE_CACHED);
  		ptr = databufs[i].data;
- 		memcpy( (unsigned char *)ptr, mem_tmp_T0, 1280*720*2 );
- #endif
-		//ptr = databufs[i].data;
-		//ptr = frame_map[i].data;
-		#if 0
+		#else
+		ptr = frame_map[i].data;   //Get camera video from VideoCaptureTask
+	 	#endif
+		
+		#if 0   //read bmp for Transparent Bottom test
 		static const char* filename[] = {"front.bmp", "back.bmp", "left.bmp", "right.bmp"};
 		cv::Mat bgr = cv::imread(filename[i]);
 		cv::cvtColor(bgr, databufs[i], cv::COLOR_BGR2RGB);
-		uint8_t* ptr = databufs[i].data;
+		ptr = databufs[i].data;
 
 		glBindTexture(GL_TEXTURE_2D, m_imageTextureID[i]);
 		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, SRC_IMAGE_WIDTH, SRC_IMAGE_HEIGHT, 0, GL_RGB, GL_UNSIGNED_BYTE, databufs[i].data);
@@ -439,10 +416,9 @@ void CFinalScene::renderToSreen()
 		updateYUYVTexture2(i,m_imageTextureID[i],ptr,SRC_IMAGE_WIDTH,SRC_IMAGE_HEIGHT);
 		
 		//释放摄像头设备中取出的图像缓冲区
-
-		#if 1
+		#if 0
 		#if defined(PLATFORM_S32V)
-				getCameraDevice().giveBackBuffer(i);
+				getCameraDevice().giveBackBuffer(i);	//free camera video from CCameraVedioDevice
 		#else
 				getCameraDevice().giveBackImageBuffer(i);
 		#endif
@@ -451,7 +427,6 @@ void CFinalScene::renderToSreen()
 	readflag = 0;
 	timer.stop();
 	//std::cout << "read images: " << timer.get() << std::endl;
-
  	static float delta[4] = {1.0, 1.0, 1.0, 1.0};
 #if defined(PLATFORM_S32V)
 	for (int i = 0; i < 4; ++i)
@@ -467,20 +442,21 @@ void CFinalScene::renderToSreen()
 #endif
 
     index++;
-    if(index % nframes == 0){
+    if(index % nframes == 0)
+	{
         Flag_Next++;
         printf("Flag_Next is %d\n",Flag_Next);
         time_t curTime = time(NULL);
         float frameRate = nframes * 1.0 / (curTime - preTime);
-       printf("GPU AVM frame rate is:::::::::::::::::::: %f\n",frameRate);
+       	printf("GPU AVM frame rate is:::::::::::::::::::: %f\n",frameRate);
         preTime = curTime;
-	//States_Flag++;
-	if(Flag_Next >= 4)
-		Flag_Next = 0;
+		//States_Flag++;
+		if(Flag_Next >= 4)
+			Flag_Next = 0;
     }
-    if(g_globalParam.m_displayMode == 1){
+    if(g_globalParam.m_displayMode == 1)
+	{
 		static int aaa = m_imageTextureID[0];
-
 		void* data = static_cast<void*>(delta);
 		{
 			// 透明车底功能
@@ -493,7 +469,6 @@ void CFinalScene::renderToSreen()
 			// render2DView(0, 0, getScreenWidth(), getScreenHeight(), data, 0);
 
 			//renderTexView(dstTexPre,birdEyeViewX, birdEyeViewY, birdEyeViewWidth, birdEyeViewHeight);
-
 			transBotC->setTransMatrix(bevTransformMatrix);
 			transBotC->generateTransBot(encoderData, reset);
 
@@ -503,14 +478,12 @@ void CFinalScene::renderToSreen()
 		}
 
 		static int cnt;
-		//switch (mode)
 
 		if(SwitchChannelNum != 8)
 		{
 			cnt = 181;
 		}
 		//SwitchChannelNum = 3;
-
 
 		glm::mat4 transMatrix2w3 = glm::rotate(glm::mat4(1.0), glm::radians(-90.0f), glm::vec3(0.0, 0.0, 1.0));
 		auto vg = vgCtx.get();

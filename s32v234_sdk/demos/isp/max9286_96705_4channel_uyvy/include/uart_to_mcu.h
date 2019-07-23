@@ -61,10 +61,10 @@ typedef struct PcReadData
 
 	short int CarSpeed;
 	char Steering_Wheel_angle;
-	short int yaw_rate;					//摆角,单位 度/S  ,真实值=原始值/100
-	short int acceleration_x;			//x轴加速度，单位m/s2,真实值=原始值/100
-	short int acceleration_y;			//Y轴加速度，单位m/s2,真实值=原始值/100
-	short int actual_steering_wheel_angle;		//方向盘转角信息，单位：度，左为正，右为负，真实值=原始值/100
+	short int yaw_rate;						//摆角,单位 度/S  ,真实值=原始值/100
+	short int acceleration_x;				//x轴加速度，单位m/s2,真实值=原始值/100
+	short int acceleration_y;				//Y轴加速度，单位m/s2,真实值=原始值/100
+	short int actual_steering_wheel_angle;	//方向盘转角信息，单位：度，左为正，右为负，真实值=原始值/100
 }PCREADDATA;
 
 typedef struct PcWriteData

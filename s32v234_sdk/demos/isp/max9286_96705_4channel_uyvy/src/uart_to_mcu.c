@@ -1133,8 +1133,8 @@ void *Uart_TX_thread(void *t)
 		}
 		if(ObstacleData_Ptr->TimeStampex_Couter != obstacle_TimeStamp_bak)
 		{ 
-			printf("obstacle num =%d\n",ObstacleData_Ptr->num);
-			printf("obstacle cnt =%d\n",ObstacleData_Ptr->TimeStampex_Couter);
+			//printf("obstacle num =%d\n",ObstacleData_Ptr->num);
+			//printf("obstacle cnt =%d\n",ObstacleData_Ptr->TimeStampex_Couter);
 			obstacle_TimeStamp_bak = ObstacleData_Ptr->TimeStampex_Couter;
 			tx5Buffer[0] = 	F_START_SOC;//0x01
 			tx5Buffer[1] = 	0xa1;       
