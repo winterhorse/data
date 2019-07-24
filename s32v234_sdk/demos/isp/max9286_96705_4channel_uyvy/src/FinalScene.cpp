@@ -385,8 +385,8 @@ void CFinalScene::renderToSreen()
     const int nframes = 50;
 	uint8_t* ptr = NULL;
     //changeView();
-	vsdk::SMat databufs[4];
-	//cv::Mat databufs[4];
+	//vsdk::SMat databufs[4];
+	cv::Mat databufs[4];
 	//usleep(30000);
 	Timer<> timer;
 	timer.start();
@@ -400,10 +400,10 @@ void CFinalScene::renderToSreen()
  		databufs[i] = databuf.getMat(vsdk::ACCESS_READ | OAL_USAGE_NONCACHED);
  		ptr = databufs[i].data;
 		#else
-		ptr = frame_map[i].data;   //Get camera video from VideoCaptureTask
+		//ptr = frame_map[i].data;   //Get camera video from VideoCaptureTask
 	 	#endif
 		
-		#if 0   //read bmp for Transparent Bottom test
+		#if 1  //read bmp for Transparent Bottom test
 		static const char* filename[] = {"front.bmp", "back.bmp", "left.bmp", "right.bmp"};
 		cv::Mat bgr = cv::imread(filename[i]);
 		cv::cvtColor(bgr, databufs[i], cv::COLOR_BGR2RGB);
@@ -413,7 +413,7 @@ void CFinalScene::renderToSreen()
 		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, SRC_IMAGE_WIDTH, SRC_IMAGE_HEIGHT, 0, GL_RGB, GL_UNSIGNED_BYTE, databufs[i].data);
 		#endif
 	   /**********************************************************************************/
-		updateYUYVTexture2(i,m_imageTextureID[i],ptr,SRC_IMAGE_WIDTH,SRC_IMAGE_HEIGHT);
+		//updateYUYVTexture2(i,m_imageTextureID[i],ptr,SRC_IMAGE_WIDTH,SRC_IMAGE_HEIGHT);
 		
 		//释放摄像头设备中取出的图像缓冲区
 		#if 0
@@ -483,7 +483,7 @@ void CFinalScene::renderToSreen()
 		{
 			cnt = 181;
 		}
-		//SwitchChannelNum = 3;
+		SwitchChannelNum = 0;
 
 		glm::mat4 transMatrix2w3 = glm::rotate(glm::mat4(1.0), glm::radians(-90.0f), glm::vec3(0.0, 0.0, 1.0));
 		auto vg = vgCtx.get();

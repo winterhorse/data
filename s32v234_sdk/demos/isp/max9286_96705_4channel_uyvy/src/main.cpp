@@ -283,11 +283,11 @@ int main(int, char **)
 
 	Ipc_Create();
 	//OpenglInit();
-	 pthread_create(&videotask, NULL, VideoCaptureTask,NULL);
+	 //pthread_create(&videotask, NULL, VideoCaptureTask,NULL);
 
 	sleep(1);
 	printf("start GLTask\n");
-	//ret = pthread_create(&gltask, NULL, GLTask,NULL);
+	ret = pthread_create(&gltask, NULL, GLTask,NULL);
 	if(ret)
 	{
 		printf("Create GL Task error!\n");
@@ -341,9 +341,9 @@ int main(int, char **)
 		printf("Create net_tr_thread error!\n");
 		return 1;
 	}
-	 pthread_join(videotask,NULL);
+	 //pthread_join(videotask,NULL);
 	//pthread_join(cltask,NULL);
-	//pthread_join(gltask,NULL);
+	pthread_join(gltask,NULL);
 	pthread_join(keytask,NULL);
 	//pthread_join(tertask,NULL);
 	//pthread_join(guitask,NULL);
